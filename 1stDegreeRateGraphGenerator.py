@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #Create figure with 1 row 3 collumns
-fig1, (ax1, ax2, ax3) = plt.subplots(1,3,figsize=(16,4))
+fig1, ([ax1, ax2], [ax3, ax4]) = plt.subplots(2,2,figsize=(8,8))
 
 #Defines data arrays for x and y (obtained during practical)
 x_arr = [100,120,240,440,480,600,900,1200,1500,1800,2100,2400]
@@ -20,6 +20,11 @@ rate = -np.gradient(y_arr,x_arr)
 #Finds rate slope and intercept when plotted against concentration
 rate_slope, rate_intercept = np.polyfit(smooth_y, smooth_rate, 1)
 rate_fit_line = rate_slope * smooth_y + rate_intercept #straight line equation for line of best fit of rate against concentration
+
+#List of ln(conc)
+ln_y = np.log(np.array(y_arr))
+rate_slope2, rate_intercept2 = np.polyfit(x_arr, ln_y, 1)
+rate_fit_line2 = rate_slope2 * np.array(x_arr) + rate_intercept2
 
 #Plots smoothed curve and points used : concentration vs time
 ax1.scatter(x_arr,y_arr, label = "Raw Data")
@@ -47,6 +52,12 @@ ax3.set_ylabel("Rate / mols dm^-1 s^-1")
 ax3.set_xlabel("Concentration / mols dm^-1")
 ax3.grid(True)
 ax3.legend()
+
+#Ln conc against time
+ax4.scatter(x_arr,ln_y, label = "Raw data")
+ax4.plot(x_arr,rate_fit_line2,label = f"y={round(rate_slope2,5)}x + {round(rate_intercept2,5)}")
+ax4.grid(True)
+ax4.legend()
 
 #Neat layout
 plt.tight_layout()
