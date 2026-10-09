@@ -128,6 +128,7 @@ ax3.plot(rate_Graph[1],rate_Graph[4], label = f"y={round(rate_Graph[5],5)}x^2 + 
 ax3.set_title("Rate against Concentration")
 ax3.set_ylabel("Rate / mols dm^-1 s^-1")
 ax3.set_xlabel("Concentration / mols dm^-1")
+ax3.invert_xaxis()
 ax3.grid(True)
 ax3.legend()
 
