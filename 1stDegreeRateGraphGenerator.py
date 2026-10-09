@@ -1,34 +1,112 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import UnivariateSpline
+
+#function for R^2 value
+def Coefficient_Of_Determination(y,line_eq):
+    mean = np.average(y)
+    SS_tot = np.sum((y-mean)**2) #Calculate total variation
+    SS_res = np.sum((y-line_eq)**2)  #Calculate unexplained variation
+    R_squared = round(1-(SS_res/SS_tot),3) #Calculate percent of explained variation (R^2 value)
+    return R_squared
+#function for common conc and rate graphs
+def Common_Rate_Graphs(x_arr,y_arr):
+    
+    #finds 3rd degree polynomial line that follows data closest
+    spline = UnivariateSpline(x_arr,y_arr)
+    smooth_x = np.linspace(min(x_arr), max(x_arr), 200) #Creates smooth x array with 200 even points between 100s and 2400s
+    smooth_y = spline(smooth_x) #Subs smooth values of x into polynomial
+
+    #Finds rate based on polynomial values and obtained values seperately
+    smooth_rate = -spline.derivative()(smooth_x)
+    rate = -np.gradient(y_arr,x_arr)
+
+    #Finds rate slope and intercept when plotted against concentration
+    poly_coeffs = np.polyfit(smooth_y, smooth_rate, 2)
+    rate_fit_line = np.polyval(poly_coeffs,smooth_y) #equation for line of best fit of rate against concentration
+    a,b,c = round(poly_coeffs[0], 3), round(poly_coeffs[1], 3), round(poly_coeffs[2], 3)
+
+    return [smooth_x,smooth_y,rate,smooth_rate,rate_fit_line,a,b,c]
+
+
+
 
 #Create figure with 1 row 3 collumns
-fig1, ([ax1, ax2], [ax3, ax4]) = plt.subplots(2,2,figsize=(8,8))
+fig1, ([ax1, ax2], [ax3, ax4]) = plt.subplots(2,2,figsize=(10,7))
 
-#Defines data arrays for x and y (obtained during practical)
-x_arr = [100,120,240,440,480,600,900,1200,1500,1800,2100,2400]
-y_arr = [8.83,8.83,8.26,6.96,6.75,6.01,4.65,3.82,3.29,2.93,2.62,2.4]
 
-#finds 3rd degree polynomial line that follows data closest
-poly_coefficients = np.polyfit(x_arr, y_arr, 3)
-smooth_x = np.linspace(100, 2400, 200) #Creates smooth x array with 200 even points between 100s and 2400s
-smooth_y = np.polyval(poly_coefficients, smooth_x) #Subs smooth values of x into polynomial
+# defines time values for x axis
+x_arr = np.array([0, 1, 2, 3, 4, 5, 10])
 
-#Finds rate based on polynomial values and obtained values seperately
-smooth_rate = -np.gradient(smooth_y, smooth_x)
-rate = -np.gradient(y_arr,x_arr)
 
-#Finds rate slope and intercept when plotted against concentration
-rate_slope, rate_intercept = np.polyfit(smooth_y, smooth_rate, 1)
-rate_fit_line = rate_slope * smooth_y + rate_intercept #straight line equation for line of best fit of rate against concentration
+#Allows testing of different data sets that should have 0,1,2 order respective to entered number
+test_value = int(input("Enter number 0-2: "))
+if test_value == 0:
+    #Zero Order Target - example experimental data - uncomment line below to test
+    y_true = np.clip(1.0 - 0.08 * x_arr, 0.01, None) 
+elif test_value == 1:
+    #First Order Target - example experimental data - uncomment line below to test
+    y_true = np.exp(-0.2 * x_arr) 
+else:
+    #Second Order Target - example experimental data - uncomment line below to test
+    y_true = 1.0 / (1.0 + 0.3 * x_arr)
 
-#List of ln(conc)
+
+#generate random noise
+experimental_scatter = np.random.normal(loc=0.0, scale=0.02, size=x_arr.shape)
+
+#Final y values with fake experimental error, clip ensures none below 0
+y_arr = list(np.clip(y_true + experimental_scatter, 0.04, None))
+
+# Optional: Print to terminal to inspect your simulated lab beaker values
+print(f"Generated Noisy Concentrations: {[round(c, 3) for c in y_arr]}")
+
+
+rate_Graph = Common_Rate_Graphs(x_arr,y_arr)
+
+#Calculates line of best fit and R^2 for zero order reaction
+y = np.array(y_arr)
+rate_slope0, rate_intercept0 = np.polyfit(x_arr, y, 1)
+rate_fit_line0 = rate_slope0 * np.array(x_arr) + rate_intercept0
+R_squared_zero_order = Coefficient_Of_Determination(y,rate_fit_line0)
+
+#Calculates line of best fit and R^2 for first order reaction 
 ln_y = np.log(np.array(y_arr))
-rate_slope2, rate_intercept2 = np.polyfit(x_arr, ln_y, 1)
+rate_slope1, rate_intercept1 = np.polyfit(x_arr, ln_y, 1)
+rate_fit_line1 = rate_slope1 * np.array(x_arr) + rate_intercept1
+R_squared_first_order = Coefficient_Of_Determination(ln_y,rate_fit_line1)
+
+#Calculates line of best fit and R^2 for second order reaction
+over_y = 1 / np.array(y_arr)
+rate_slope2, rate_intercept2 = np.polyfit(x_arr, over_y, 1)
 rate_fit_line2 = rate_slope2 * np.array(x_arr) + rate_intercept2
+R_squared_second_order = Coefficient_Of_Determination(over_y,rate_fit_line2)
+
+#Which graph plots most accurate line of best fit
+if R_squared_zero_order > R_squared_first_order and R_squared_zero_order > R_squared_second_order: #Check 0 order
+    R_squared = R_squared_zero_order
+    rate_fit_line,rate_slope,rate_intercept = rate_fit_line0,rate_slope0,rate_intercept0
+    y_data = y
+    order = ("0th order")
+    integrated_y_label,integrated_x_label = ("concentration / mol dm^-1"),("time / s")
+    
+elif R_squared_first_order > R_squared_second_order:  #Check 1 order
+    R_squared = R_squared_first_order
+    rate_fit_line,rate_slope,rate_intercept = rate_fit_line1,rate_slope1,rate_intercept1
+    y_data = ln_y
+    order = ("1st order")
+    integrated_y_label,integrated_x_label = ("ln(concentration)"),("time / s")
+
+else: #Check 2nd order
+    R_squared = R_squared_second_order
+    rate_fit_line,rate_slope,rate_intercept = rate_fit_line2,rate_slope2,rate_intercept2
+    y_data = over_y
+    order = ("2nd order")
+    integrated_y_label,integrated_x_label = ("1/concentration / mol^-1 dm"),("time / s")
 
 #Plots smoothed curve and points used : concentration vs time
 ax1.scatter(x_arr,y_arr, label = "Raw Data")
-ax1.plot(smooth_x,smooth_y,label = "Curve fit")
+ax1.plot(rate_Graph[0],rate_Graph[1],label = "Curve fit")
 ax1.set_title("Concentration against Time")
 ax1.set_ylabel("Concentration / mols dm^-1")
 ax1.set_xlabel("Time / s")
@@ -36,8 +114,8 @@ ax1.grid(True)
 ax1.legend()
 
 #Rate vs time
-ax2.scatter(x_arr, rate, label= "Raw data")
-ax2.plot(smooth_x, smooth_rate, label ="Curve fit")
+ax2.scatter(x_arr, rate_Graph[2], label= "Raw data")
+ax2.plot(rate_Graph[0], rate_Graph[3], label ="Curve fit")
 ax2.set_title("Rate against Time")
 ax2.set_ylabel("Rate / mols dm^-1 s^-1")
 ax2.set_xlabel("Time / s")
@@ -45,17 +123,21 @@ ax2.grid(True)
 ax2.legend()
 
 #Rate vs concentration
-ax3.scatter(y_arr,rate, label = "Raw data")
-ax3.plot(smooth_y,rate_fit_line, label = f"y={round(rate_slope,5)}x + {round(rate_intercept,5)}")
+ax3.scatter(y_arr,rate_Graph[2], label = "Raw data")
+ax3.plot(rate_Graph[1],rate_Graph[4], label = f"y={round(rate_Graph[5],5)}x^2 + {round(rate_Graph[6],5)}x + {round(rate_Graph[7],5)}")
 ax3.set_title("Rate against Concentration")
 ax3.set_ylabel("Rate / mols dm^-1 s^-1")
 ax3.set_xlabel("Concentration / mols dm^-1")
 ax3.grid(True)
 ax3.legend()
 
-#Ln conc against time
-ax4.scatter(x_arr,ln_y, label = "Raw data")
-ax4.plot(x_arr,rate_fit_line2,label = f"y={round(rate_slope2,5)}x + {round(rate_intercept2,5)}")
+
+#Integrated rate equation
+ax4.scatter(x_arr,y_data, label = "Raw data")
+ax4.plot(x_arr,rate_fit_line,label = f"y={round(rate_slope,5)}x + {round(rate_intercept,5)}\nR^2 = {R_squared}")
+ax4.set_title(f"Integrated rate equation {order} reaction")
+ax4.set_ylabel(f"{integrated_y_label}")
+ax4.set_xlabel(f"{integrated_x_label}")
 ax4.grid(True)
 ax4.legend()
 
